@@ -1,0 +1,70 @@
+ //
+// Simple clode to Read A0,A1 from the Piezo and IR
+//
+// Sensor Used: 
+//Bean:
+//https://punchthrough.com/bean
+//Sensors:
+//https://www.creatroninc.com/product/940nm-infrared-emitter-transistor-pair-lte-5208-ltr-3208/
+//https://www.creatroninc.com/product/piezo-element-20mm/?search_query=piezo&results=13
+//
+// When acceleration change goes beyond this threshold, the LED will blink.
+
+// thresholds hold hard code see below 
+
+AccelerationReading previousAccel;
+
+void setup() {
+  Serial.begin(57600);
+  pinMode(0, OUTPUT);
+  digitalWrite(0, LOW);
+   // Turn off the Bean's LED
+  Bean.setLed(0, 0, 0);  
+  }
+
+void loop() {
+  //digitalWrite(0, HIGH);
+  //Bean.setLed(0, 5, 0);  
+  //delay(50);
+  Bean.sleep(150);
+  
+  int sensorValue1 = analogRead(A1);
+  Serial.print("A1 = ");
+  Serial.println(sensorValue1);
+  int sensorValue0 = analogRead(A0);
+ //  Serial.println("");
+  Serial.print("A0 = ");
+  Serial.println(sensorValue0);
+  Serial.println("");
+ // Bean.setScratchNumber(1, sensorValue0);
+//   Bean.setScratchNumber(2, sensorValue1);
+
+ if(sensorValue1 >20){
+    Bean.setLed(0, 0, 10);  
+   Bean.setScratchNumber(1, 1); // Roll moving
+      Serial.println(">>> TPR ROLL is in USE");
+ }else{
+
+    if(sensorValue0 > 22)
+        Bean.setLed(0, 5, 0);  //green
+    else  
+        Bean.setLed(50, 0, 0);  //red
+   
+    
+    //Bean.setLed(0, 0, 10);  
+     Bean.setScratchNumber(1, 0); // Roll STILL
+      Serial.println("... TPR ROLL NOT in use");  
+ }
+
+  if(sensorValue0 > 22){
+    Bean.setLed(0, 5, 0);  
+     Bean.setScratchNumber(2, 1); // PAPER GOOD
+       Serial.println("... TPR Paper GOOD");
+  }else{
+    Bean.setLed(50, 0, 0);  
+     Bean.setScratchNumber(2, 0); // NO PAPER 
+          Serial.println(">>> TPR Paper LOW");
+  }//led
+    
+}
+
