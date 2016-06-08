@@ -1,0 +1,317 @@
+
+//------------------------------------------------------------------------------
+//
+// Send ble and ibeaon data  to IOTF via mqtt
+//
+// Markus van Kempen - mvk@ca.ibm.com
+//-----------------------------------------
+var mqtt = require('mqtt');
+var url = require('url');
+var macUtil = require('getmac');
+var properties = require('properties');
+var connected = false;
+var request = require('request');
+var deviceId= "";
+var deviceIP="";
+var deviceName="";
+var mqttconnected = false;
+
+"use strict";
+
+var Bean = require('../');
+
+var intervalId;
+var connectedBean;
+var xx=0,yy=0,zz=0,tt=0,status=0,ll=0,tprmove=0,tprlevel=0;
+
+var os = require('os');
+var ifaces = os.networkInterfaces();
+ console.log(JSON.stringify(ifaces));
+Object.keys(ifaces).forEach(function (ifname) {
+  var alias = 0
+    ;
+
+
+  ifaces[ifname].forEach(function (iface) {
+    if ('IPv4' !== iface.family || iface.internal !== false) {
+      // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
+      return;
+    }
+
+    if (alias >= 1) {
+      // this single interface has multiple ipv4 addresses
+      console.log(ifname, iface.address + " (2)Mac: "+iface.mac );
+
+    } else {
+      deviceIP = iface.address;
+      // this interface has only one ipv4 adress
+      console.log(ifname, iface.address + " (1)Mac: "+iface.mac );
+	  if (iface.address.indexOf("192")  > -1)
+	{
+		  deviceIP = iface.address;
+	  }
+    }
+  });
+})
+// config file has this format infos
+org=YOURS
+type=Bean
+id=TpROLL
+auth-method=token
+auth-token=YOURS
+
+//Organization ID YOURS
+//Device Type Bean
+//Device ID TpROLL
+//Authentication Method token
+//Authentication Token YOURS
+
+properties.parse('./tprconfig.properties', {path: true}, function(err, cfg) {
+  if (err) {
+    console.error('A file named config.properties containing the device registration from the IBM IoT Cloud is missing.');
+    console.error('The file must contain the following properties: org, type, id, auth-token.');
+    throw e;
+  }
+  macUtil.getMac(function(err, macAddress) {
+    if (err) throw err;
+    deviceId = macAddress.replace(/:/gi, '');
+    console.log('Device MAC Address: ' + deviceId);
+
+//    if(cfg.id != deviceId) {
+//    	console.warn('The device MAC address does not match the ID in the configuration file.');
+//    }
+//cfg.org = 'quickstart';
+    var clientId = ['d', cfg.org, cfg.type, cfg.id].join(':');
+    console.log("We are ClientID  : "+clientId);
+    deviceName =  cfg.id;
+
+//    client = mqtt.createSecureClient('8883', cfg.org + '.messaging.internetofthings.ibmcloud.com',
+    client = mqtt.createClient('1883',   cfg.org + '.messaging.internetofthings.ibmcloud.com',
+      {
+        "clientId" : clientId,
+//		 "clientId" : 'd:quickstart:paho-client:8c705ae36b0c',
+        "keepalive" : 30,
+//        "username" : "",
+//        "password" : ""
+        "username" : "use-token-auth",
+        "password" : cfg['auth-token']
+      });
+
+    client.on('connect', function() {
+	  console.log('MQTT client connected to IBM IoT Cloud.');
+    mqttconnected = true;
+	  console.log("We are DeviceID  : "+cfg.id);
+
+subtopic = 'iot-2/cmd/+/fmt/json';
+client.subscribe(subtopic);
+console.log("Subscribe : "+subtopic);
+totopic = 'iot-2/evt/status/fmt/json';
+console.log("Publish : "+totopic);
+pushdata("Bean","Hello",xx,yy,zz,tt,ll);
+//     pushdata();
+//getdata();
+    });//client connect
+
+
+	client.on('message', function(topic, message) {
+    console.log(">>>>> Received Topic: " +topic + "  Msg: "+message);
+
+	myData = JSON.parse(message);
+//	myNewTargetTemp = myData.d.TargetTemp;
+
+
+	});///client.on('message', f
+
+    client.on('error', function(err) {
+	  console.log('client error' + err);
+	  process.exit(1);
+    });
+    client.on('MQTT close', function(msg) {
+	  console.log('client closed: '+msg);
+	  process.exit(1);
+    });
+
+
+});
+});
+Bean.discover(function(bean){
+  connectedBean = bean;
+  process.on('SIGINT', exitHandler.bind(this));
+
+  bean.on("accell", function(x, y, z, valid){
+   status = valid ? "valid" : "invalid";
+   xx=x;yy=y;zz=z;
+    console.log("received " + status + " accell\tx:\t" + x + "\ty:\t" + y + "\tz:\t" + z );
+    //pushdata("accell",status,xx,yy,zz,tt,ll);
+  });
+
+  bean.on("temp", function(temp, valid){
+    status = valid ? "valid" : "invalid";
+    tt=temp;
+    console.log("received " + status + " temp:\t" + temp);
+    //pushdata("temp",status,xx,yy,zz,tt,ll);
+      status = tprlevel ? "TPR level GOOD" : "TPR level LOW";
+      if (tprmove == 0 )
+      {
+        pushdata("tprlevel",status,xx,yy,zz,tt,ll,tprmove,tprlevel);
+
+      }else{
+        status = tprmove ? "TPR Active" : "TPR Not In Use";
+       pushdata("tprmove",status,xx,yy,zz,tt,ll,tprmove,tprlevel);
+      }
+
+  });
+
+  bean.on("led", function(led, valid){
+    status = valid ? "valid" : "invalid";
+    ll =led;
+  //  pushdata("temp",status,xx,yy,zz,tt,ll);
+    console.log("received " + status + " led:\t" + led);
+  });
+
+  bean.on("disconnect", function(){
+    process.exit();
+  });
+
+  bean.connectAndSetup(function(){
+
+    var readData = function() {
+
+      //set random led colors between 0-255. I find red overpowering so red between 0-64
+    //  bean.setColor(new Buffer([getRandomInt(0,64),getRandomInt(0,255),getRandomInt(0,255)]),
+//        function(){
+  //        console.log("led color sent");
+    //  });
+
+      bean.requestAccell(
+      function(){
+        console.log("request accell sent");
+      });
+
+      bean.requestTemp(
+      function(){
+        console.log("request temp sent");
+      });
+
+      bean.requestLed(
+      function(){
+        console.log("request Led sent");
+      });
+
+
+        bean.notifyTwo(
+          //called when theres data
+          function(data){
+
+            if(data && data.length>=2){
+              var value = data[1]<<8 || (data[0]);
+              tprlevel = value;
+              console.log("A0:", value);
+
+              status = tprlevel ? "TPR level GOOD" : "TPR Level LOW";
+              console.log("tprlevel " + status + " tprlevel :"+tprlevel);
+              if(value == 0 && tprmove == 1)
+                 pushdata("tprlevel",status,xx,yy,zz,tt,ll,tprmove,tprlevel);
+
+            }
+          },
+          //called when the notify is successfully or unsuccessfully setup
+          function(error){
+            if(error) console.log("one setup: ", error);
+          });
+
+        bean.notifyOne(
+          //called when theres data
+          function(data){
+            if(data && data.length>=2){
+              var value = data[1]<<8 || (data[0]);
+              tprmove = value;
+              console.log("A1:", value);
+              status = value ? "TRP Active" : "TPR Not In Use";
+              console.log("tprmove " + status + " tprmove :"+tprmove);
+              if(tprmove == 1)
+              pushdata("tprmove",status,xx,yy,zz,tt,ll,tprmove,tprlevel);
+
+            }
+          },
+          //called when the notify is successfully or unsuccessfully setup
+          function(error){
+            if(error) console.log("two setup: ", error);
+          });
+
+
+
+    }
+
+   intervalId = setInterval(readData,5000);
+
+  });
+
+});
+
+
+function   pushdata(otype,status,x,y,z,t,l,tprm,tprl){
+ totopic = 'iot-2/evt/status/fmt/json';
+
+  var myJsonData = {
+         "d": {
+           "eventtype" : otype,
+           "status" : status,
+           "x" : x,
+           "y" : y,
+           "z" : z,
+           "temp" : t,
+           "led" : l,
+           "tprmove" : tprm,
+           "tprlevel" : tprl,
+           "tprleveltxt" : (tprl ? "TPR level GOOD" : "TPR level LOW"),
+           "tprmovetxt" : (tprm ? "TRP Active" : "TPR Not In Use"),
+           //https://philkaplan.files.wordpress.com/2014/05/bigstock-empty-toilet-paper-roll-on-whi-56191364.jpg
+           "tprlevelimg" : (tprl ? "http://2.imimg.com/data2/IJ/YL/MY-3920708/toilet-paper-rolls-250x250.jpg" : "http://dingo.care2.com/pictures/greenliving/uploads/2012/05/Toilet-paper-roll.jpg"),
+           "deviceName" : deviceName,
+           "deviceIP"   : deviceIP,
+
+           /*3600 Steeles Ave E
+Markham, ON L3R 9Z7
+43.818442, -79.333965*/
+
+		   "lat": 43.818442,
+   		   "lng": -79.333965,
+           "ts": (new Date()).getTime(),
+		   "sine": (100 * Math.sin(((new Date()).getTime()/ 1000) / 10)),
+           "cos"  :  (100 * Math.cos(((new Date()).getTime()/ 1000) / 10)),
+
+           "Desc": "TPRBean"
+
+          }
+        };
+//    console.log(myJsonData.d.ts+" : Publish to Topic: " +totopic + "  Msg: "+JSON.stringify(myJsonData));
+    console.log(myJsonData.d.ts+" Msg: "+JSON.stringify(myJsonData));
+
+//subscribe to iot-2/type/mvk-laptoplan/id/00-21-CC-C8-6F-1B/evt/+/fmt/json
+    //   client.publish('iot-2/evt/MVK/fmt/json', JSON.stringify(myJsonData), function() {
+client.publish('iot-2/evt/status/fmt/json', JSON.stringify(myJsonData), function() {
+       });
+
+//setTimeout(pushdata, 1000);
+}
+
+process.stdin.resume();//so the program will not close instantly
+var triedToExit = false;
+
+//turns off led before disconnecting
+var exitHandler = function exitHandler() {
+
+  var self = this;
+  if (connectedBean && !triedToExit) {
+    triedToExit = true;
+    console.log('Turning off led...');
+    clearInterval(intervalId);
+    connectedBean.setColor(new Buffer([0x0,0x0,0x0]), function(){});
+    //no way to know if succesful but often behind other commands going out, so just wait 2 seconds
+    console.log('Disconnecting from Device...');
+    setTimeout(connectedBean.disconnect.bind(connectedBean, function(){}), 2000);
+  } else {
+    process.exit();
+  }
+};
