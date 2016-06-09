@@ -1,4 +1,4 @@
-# Connect everything to IoT (even a toilet paper roll
+# Connect everything to IoT (even a Toilet Paper Roll)
 > Short blurb about what your product does.
 
 [![NPM Version][npm-image]][npm-url]
@@ -33,8 +33,7 @@ npm test
 
 ## Release History
     * CHANGE: Update docs (module code remains unchanged)
-* 0.0.1
-    * Work in progress
+
 
 ## Meta
 
