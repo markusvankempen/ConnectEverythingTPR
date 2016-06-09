@@ -2,13 +2,14 @@
 
 > The project was to connect Toilet Paper Roll Holder (TPR) to the Internet of Things in order to measure the paper flow and paper level. As sensors we using IR Emitter/Detector and Piezo element and LightBlueBean. The demo shows the setup, data flow and a Dashboard using the Watson IoT Platform
 
-Bean:
-[LightBlueBean](]https://punchthrough.com/bean)
-Sensors:
-https://www.creatroninc.com/product/940nm-infrared-emitter-transistor-pair-lte-5208-ltr-3208/
-https://www.creatroninc.com/product/piezo-element-20mm/?search_query=piezo&results=13
-Slides:
 
+### MC/Bean:
+[LightBlueBean](https://punchthrough.com/bean)
+### Sensors:
+[infrared-emitte](https://www.creatroninc.com/product/940nm-infrared-emitter-transistor-pair-lte-5208-ltr-3208/)
+[piezo](https://www.creatroninc.com/product/piezo-element-20mm/?search_query=piezo&results=13)
+Slides:
+[http://www.slideshare.net/MarkusVanKempen/how-to-use-iot-data-with-watson-speechtotext-texttospeech-and-nlc-to-query-sensors](Sildes)
 
 ![](images/Screenshot 2016-06-05 22.55.15.png)
 
